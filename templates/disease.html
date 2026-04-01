@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Disease detection — AgriTech{% endblock %}
+{% block content %}
+<h1 class="page-title">Plant disease detection</h1>
+<p class="page-lead">Upload a clear photo of a leaf. The server runs your <code>best_model.keras</code> (EfficientNetB0) with the same preprocessing as training.</p>
+
+<form class="form-panel" id="dis-form" enctype="multipart/form-data">
+  <label class="field">Leaf image
+    <input type="file" name="image" id="dis-file" accept="image/*" required>
+  </label>
+  <div class="preview-wrap">
+    <img id="dis-preview" alt="Preview">
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" id="dis-btn">Diagnose</button>
+    <span class="loader" id="dis-loader"><span class="spinner"></span> Running model…</span>
+  </div>
+</form>
+
+<div class="result-panel" id="dis-result" aria-live="polite">
+  <h3>Result</h3>
+  <p class="meta">Upload an image and submit. Ensure <code>models/best_model.keras</code> is present.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById("dis-form");
+  const fileInput = document.getElementById("dis-file");
+  const preview = document.getElementById("dis-preview");
+  const btn = document.getElementById("dis-btn");
+  const loader = document.getElementById("dis-loader");
+  const out = document.getElementById("dis-result");
+
+  fileInput.addEventListener("change", function () {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) {
+      preview.classList.remove("visible");
+      preview.removeAttribute("src");
+      return;
+    }
+    preview.src = URL.createObjectURL(f);
+    preview.classList.add("visible");
+  });
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append("image", fileInput.files[0]);
+    setLoading(loader, btn, true);
+    try {
+      const res = await fetch("/predict_disease", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const conf = (data.confidence * 100).toFixed(1) + "%";
+      out.innerHTML =
+        "<h3>Predicted condition</h3>" +
+        "<div class=\"value\">" + escapeHtml(data.disease) + "</div>" +
+        "<div class=\"meta\">Confidence: " + escapeHtml(conf) +
+        (data.class_index != null ? " · class index: " + escapeHtml(String(data.class_index)) : "") +
+        "</div>";
+    } catch (err) {
+      out.innerHTML = "<h3>Error</h3><div class=\"error\">" + escapeHtml(err.message) + "</div>";
+    } finally {
+      setLoading(loader, btn, false);
+    }
+  });
+
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+})();
+</script>
+{% endblock %}

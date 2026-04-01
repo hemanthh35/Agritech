@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Model metrics — AgriTech{% endblock %}
+{% block content %}
+<h1 class="page-title">Model metrics</h1>
+<p class="metrics-hint">Saved metrics for the crop and fertilizer models. Disease (EfficientNet) is not evaluated here.</p>
+
+<div id="metrics-root">
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const root = document.getElementById("metrics-root");
+  const metricsData = {{ metrics_data|tojson }};
+
+  function pct(x) {
+    if (x == null || typeof x !== "number" || Number.isNaN(x)) return "—";
+    return (x * 100).toFixed(2) + "%";
+  }
+
+  function fmt4(x) {
+    if (x == null || typeof x !== "number" || Number.isNaN(x)) return "—";
+    return x.toFixed(4);
+  }
+
+  function orderedReportKeys(report) {
+    if (!report || typeof report !== "object") return [];
+    const keys = Object.keys(report).filter(function (k) {
+      if (k === "accuracy") return false;
+      var v = report[k];
+      if (!v || typeof v !== "object") return false;
+      return "f1-score" in v || "precision" in v;
+    });
+    var rest = keys.filter(function (k) {
+      return k !== "macro avg" && k !== "weighted avg";
+    });
+    rest.sort(function (a, b) {
+      return a.localeCompare(b);
+    });
+    var tail = [];
+    if (keys.indexOf("macro avg") >= 0) tail.push("macro avg");
+    if (keys.indexOf("weighted avg") >= 0) tail.push("weighted avg");
+    return rest.concat(tail);
+  }
+
+  function renderReportTable(report) {
+    if (!report || typeof report !== "object") return "";
+    var keys = orderedReportKeys(report);
+    var rows = [];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var v = report[k];
+      rows.push(
+        "<tr><td>" +
+          escapeHtml(k) +
+          "</td><td>" +
+          fmt4(v.precision) +
+          "</td><td>" +
+          fmt4(v.recall) +
+          "</td><td>" +
+          fmt4(v["f1-score"]) +
+          "</td><td>" +
+          (v.support != null ? String(Math.round(v.support)) : "—") +
+          "</td></tr>"
+      );
+    }
+    if (!rows.length) return "";
+    return (
+      '<table class="metrics-table"><thead><tr><th>Class / avg</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead><tbody>' +
+      rows.join("") +
+      "</tbody></table>"
+    );
+  }
+
+  function renderConfusion(cm, labels) {
+    if (!cm || !cm.length) return "";
+    var n = cm.length;
+    var head = "<tr><th></th>";
+    for (var j = 0; j < n; j++) {
+      var lab = labels && labels[j] ? labels[j] : String(j);
+      var short = lab.length > 12 ? lab.slice(0, 11) + "\u2026" : lab;
+      head += "<th title=\"" + escapeHtml(lab) + "\">" + escapeHtml(short) + "</th>";
+    }
+    head += "</tr>";
+    var body = "";
+    for (var i = 0; i < n; i++) {
+      var lab2 = labels && labels[i] ? labels[i] : String(i);
+      var short2 = lab2.length > 14 ? lab2.slice(0, 13) + "\u2026" : lab2;
+      body += "<tr><th title=\"" + escapeHtml(lab2) + "\">" + escapeHtml(short2) + "</th>";
+      for (var jj = 0; jj < n; jj++) {
+        body += "<td>" + escapeHtml(String(cm[i][jj])) + "</td>";
+      }
+      body += "</tr>";
+    }
+    return '<div class="metrics-cm-wrap"><table class="metrics-table cm-table"><thead>' + head + "</thead><tbody>" + body + "</tbody></table></div>";
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function renderDatasetMeta(m, fileName) {
+    var parts = [];
+    if (fileName) parts.push("File: <code>" + escapeHtml(fileName) + "</code>");
+    if (m.n_rows != null) parts.push("Rows: " + escapeHtml(String(m.n_rows)));
+    if (m.samples_per_class != null)
+      parts.push("Per class: " + escapeHtml(String(m.samples_per_class)));
+    if (m.n_train != null && m.n_test != null)
+      parts.push("Train/test split: " + m.n_train + " / " + m.n_test);
+    if (!parts.length) return "";
+    return '<p class="metrics-meta-bar">' + parts.join(" · ") + "</p>";
+  }
+
+  function renderHyperparams(m) {
+    var h = m.hyperparameters;
+    if (!h || typeof h !== "object") return "";
+    var bits = [];
+    if (h.n_estimators != null) bits.push("n_estimators=" + h.n_estimators);
+    if (h.class_weight != null) bits.push("class_weight=" + h.class_weight);
+    if (!bits.length) return "";
+    return '<p class="metrics-hyper"><strong>Model:</strong> ' + escapeHtml(bits.join(", ")) + "</p>";
+  }
+
+  function renderReportTextBlock(text) {
+    if (!text || typeof text !== "string") return "";
+    return (
+      '<details class="metrics-details">' +
+      '<summary>Full classification report (text)</summary>' +
+      "<pre class=\"metrics-report-pre\">" +
+      escapeHtml(text) +
+      "</pre></details>"
+    );
+  }
+
+  function renderBlock(title, m, trainScript, meta, metaKey) {
+    var fileName = meta && meta[metaKey + "_file"];
+
+    if (!m) {
+      return (
+        '<section class="metrics-section"><h2>' +
+        escapeHtml(title) +
+        '</h2><p class="meta">No metrics file yet. Run <code>' +
+        escapeHtml(trainScript) +
+        "</code>.</p></section>"
+      );
+    }
+
+    var chips =
+      '<div class="metrics-summary">' +
+      '<div class="metric-chip"><div class="label">Train accuracy</div><div class="num">' +
+      pct(m.accuracy_train) +
+      '</div></div><div class="metric-chip"><div class="label">Test accuracy</div><div class="num">' +
+      pct(m.accuracy_test) +
+      '</div></div><div class="metric-chip"><div class="label">F1 macro</div><div class="num">' +
+      fmt4(m.f1_macro) +
+      '</div></div><div class="metric-chip"><div class="label">F1 weighted</div><div class="num">' +
+      fmt4(m.f1_weighted) +
+      '</div></div><div class="metric-chip"><div class="label">Precision macro</div><div class="num">' +
+      fmt4(m.precision_macro) +
+      '</div></div><div class="metric-chip"><div class="label">Recall macro</div><div class="num">' +
+      fmt4(m.recall_macro) +
+      "</div></div></div>";
+
+    var report = renderReportTable(m.classification_report_test);
+    var cm = renderConfusion(m.confusion_matrix_test, m.confusion_matrix_labels);
+    var dmeta = renderDatasetMeta(m, fileName);
+    var hyper = renderHyperparams(m);
+    var pre = renderReportTextBlock(m.classification_report_text);
+
+    return (
+      '<section class="metrics-section"><h2>' +
+      escapeHtml(title) +
+      "</h2>" +
+      dmeta +
+      hyper +
+      chips +
+      (report ? '<h3 class="metrics-subh">Per-class (test set)</h3>' + report : "") +
+      (cm ? '<h3 class="metrics-subh">Confusion matrix (test)</h3>' + cm : "") +
+      pre +
+      "</section>"
+    );
+  }
+
+  var meta = metricsData._meta || {};
+  root.innerHTML =
+    renderBlock("Crop recommendation", metricsData.crop, "train_crop.py", meta, "crop") +
+    renderBlock("Fertilizer recommendation", metricsData.fertilizer, "train_fertilizer.py", meta, "fertilizer");
+})();
+</script>
+{% endblock %}

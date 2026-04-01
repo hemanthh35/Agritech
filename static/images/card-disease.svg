@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">
+  <defs>
+    <linearGradient id="g3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e9edc9"/>
+      <stop offset="100%" style="stop-color:#588157"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="200" fill="url(#g3)"/>
+  <ellipse cx="200" cy="100" rx="70" ry="55" fill="#386641" opacity="0.35"/>
+  <path d="M150 90 Q200 50 250 90 Q230 130 200 125 Q170 130 150 90" fill="#a7c957" stroke="#386641" stroke-width="2"/>
+  <circle cx="175" cy="88" r="6" fill="#6a994e"/>
+  <circle cx="220" cy="95" r="5" fill="#bc4749" opacity="0.8"/>
+  <text x="200" y="185" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="14" fill="#1b4332" font-weight="600">Leaf image ’ diagnosis</text>
+</svg>

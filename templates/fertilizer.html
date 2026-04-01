@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Fertilizer recommendation — AgriTech{% endblock %}
+{% block content %}
+<h1 class="page-title">Fertilizer recommendation</h1>
+<p class="page-lead">Balanced multi-class model (NPK, moisture, pH, soil &amp; crop). Results include confidence and a short rationale.</p>
+
+<div class="fert-layout">
+  <section class="fert-card">
+    <h2>Soil &amp; environment</h2>
+    <p class="sub">All fields required. Values are validated before the request is sent.</p>
+    <form id="fert-form" novalidate>
+      <div class="form-grid">
+        <label class="field" data-key="temperature">Temperature (°C)
+          <input type="number" step="any" name="temperature" id="f-temp" placeholder="e.g. 26" autocomplete="off">
+          <span class="field-error" data-err="temperature"></span>
+        </label>
+        <label class="field" data-key="humidity">Humidity (%)
+          <input type="number" step="any" name="humidity" id="f-hum" placeholder="e.g. 68" autocomplete="off">
+          <span class="field-error" data-err="humidity"></span>
+        </label>
+        <label class="field" data-key="moisture">Soil moisture (%)
+          <input type="number" step="any" name="moisture" id="f-moist" placeholder="e.g. 45" autocomplete="off">
+          <span class="field-error" data-err="moisture"></span>
+        </label>
+        <label class="field" data-key="soil_pH">Soil pH
+          <input type="number" step="any" name="soil_pH" id="f-ph" placeholder="e.g. 6.5" autocomplete="off">
+          <span class="field-error" data-err="soil_pH"></span>
+        </label>
+        <label class="field" data-key="soil_type">Soil type
+          <select name="soil_type" id="f-soil">
+            <option value="">Select…</option>
+            <option>Sandy</option>
+            <option>Loamy</option>
+            <option>Black</option>
+            <option>Red</option>
+            <option>Clayey</option>
+          </select>
+          <span class="field-error" data-err="soil_type"></span>
+        </label>
+        <label class="field" data-key="crop_type">Crop type
+          <select name="crop_type" id="f-crop">
+            <option value="">Select…</option>
+            <option>rice</option>
+            <option>wheat</option>
+            <option>maize</option>
+            <option>cotton</option>
+            <option>sugarcane</option>
+            <option>pulses</option>
+          </select>
+          <span class="field-error" data-err="crop_type"></span>
+        </label>
+        <label class="field" data-key="N">N (nitrogen)
+          <input type="number" step="any" name="N" id="f-n" placeholder="e.g. 50" autocomplete="off">
+          <span class="field-error" data-err="N"></span>
+        </label>
+        <label class="field" data-key="P">P (phosphorus)
+          <input type="number" step="any" name="P" id="f-p" placeholder="e.g. 45" autocomplete="off">
+          <span class="field-error" data-err="P"></span>
+        </label>
+        <label class="field" data-key="K">K (potassium)
+          <input type="number" step="any" name="K" id="f-k" placeholder="e.g. 40" autocomplete="off">
+          <span class="field-error" data-err="K"></span>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="fert-btn">Get recommendation</button>
+        <span class="loader" id="fert-loader"><span class="spinner"></span> Analyzing…</span>
+      </div>
+    </form>
+  </section>
+
+  <section class="fert-card fert-success" id="fert-result-card" hidden>
+    <h2>Recommendation</h2>
+    <p class="sub" id="fert-result-sub">Model output</p>
+    <div class="conf-badge" id="fert-conf" aria-label="Confidence"></div>
+    <p class="pred-name" id="fert-pred"></p>
+    <p class="fert-explain" id="fert-explain"></p>
+  </section>
+
+  <section class="fert-card" id="fert-hint-card">
+    <h2>Tip</h2>
+    <p class="fert-placeholder">Submit the form to see fertilizer name, confidence, and an explanation tied to your NPK, pH, and soil moisture.</p>
+  </section>
+</div>
+
+<div class="result-panel" id="fert-error-panel" style="display:none;margin-top:1rem;" aria-live="assertive">
+  <h3>Error</h3>
+  <div class="error" id="fert-error-text"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById("fert-form");
+  const btn = document.getElementById("fert-btn");
+  const loader = document.getElementById("fert-loader");
+  const resultCard = document.getElementById("fert-result-card");
+  const hintCard = document.getElementById("fert-hint-card");
+  const errPanel = document.getElementById("fert-error-panel");
+  const errText = document.getElementById("fert-error-text");
+  const predEl = document.getElementById("fert-pred");
+  const confEl = document.getElementById("fert-conf");
+  const explainEl = document.getElementById("fert-explain");
+
+  const keys = ["temperature", "humidity", "moisture", "soil_pH", "soil_type", "crop_type", "N", "P", "K"];
+
+  function clearErrors() {
+    errPanel.style.display = "none";
+    keys.forEach(function (k) {
+      var el = document.querySelector('[data-err="' + k + '"]');
+      var lab = document.querySelector('label.field[data-key="' + k + '"]');
+      if (el) {
+        el.textContent = "";
+        el.classList.remove("visible");
+      }
+      if (lab) lab.classList.remove("invalid");
+    });
+  }
+
+  function setFieldError(key, msg) {
+    var el = document.querySelector('[data-err="' + key + '"]');
+    var lab = document.querySelector('label.field[data-key="' + key + '"]');
+    if (el) {
+      el.textContent = msg;
+      el.classList.add("visible");
+    }
+    if (lab) lab.classList.add("invalid");
+  }
+
+  function validate() {
+    clearErrors();
+    var ok = true;
+    var fd = new FormData(form);
+
+    function num(name, min, max, label) {
+      var raw = fd.get(name);
+      if (raw === null || String(raw).trim() === "") {
+        setFieldError(name, label + " is required.");
+        return null;
+      }
+      var v = parseFloat(raw);
+      if (Number.isNaN(v)) {
+        setFieldError(name, "Enter a valid number.");
+        return null;
+      }
+      if (v < min || v > max) {
+        setFieldError(name, "Use a value between " + min + " and " + max + ".");
+        return null;
+      }
+      return v;
+    }
+
+    var t = num("temperature", -5, 50, "Temperature");
+    var h = num("humidity", 0, 100, "Humidity");
+    var m = num("moisture", 0, 100, "Moisture");
+    var ph = num("soil_pH", 4.0, 9.0, "Soil pH");
+    var n = num("N", 0, 200, "N");
+    var p = num("P", 0, 200, "P");
+    var k = num("K", 0, 200, "K");
+
+    var soil = String(fd.get("soil_type") || "").trim();
+    if (!soil) {
+      setFieldError("soil_type", "Choose a soil type.");
+      ok = false;
+    }
+    var crop = String(fd.get("crop_type") || "").trim();
+    if (!crop) {
+      setFieldError("crop_type", "Choose a crop type.");
+      ok = false;
+    }
+
+    if (t === null || h === null || m === null || ph === null || n === null || p === null || k === null) ok = false;
+    return ok
+      ? {
+          temperature: t,
+          humidity: h,
+          moisture: m,
+          soil_pH: ph,
+          soil_type: soil,
+          crop_type: crop,
+          N: n,
+          P: p,
+          K: k,
+        }
+      : null;
+  }
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var body = validate();
+    if (!body) return;
+
+    setLoading(loader, btn, true);
+    errPanel.style.display = "none";
+    resultCard.hidden = true;
+    hintCard.hidden = false;
+
+    try {
+      var data = await postJson("/predict_fertilizer", body);
+      hintCard.hidden = true;
+      resultCard.hidden = false;
+      predEl.textContent = data.prediction || "—";
+      confEl.textContent = "Confidence: " + (data.confidence || "—");
+      explainEl.textContent = data.explanation || "No explanation returned.";
+    } catch (err) {
+      hintCard.hidden = false;
+      resultCard.hidden = true;
+      errText.textContent = err.message || "Request failed";
+      errPanel.style.display = "block";
+    } finally {
+      setLoading(loader, btn, false);
+    }
+  });
+})();
+</script>
+{% endblock %}

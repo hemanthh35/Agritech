@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Home — AgriTech Precision{% endblock %}
+{% block content %}
+<section class="hero">
+  <img
+    class="hero-bg"
+    src="{{ url_for('static', filename='images/hero-agri.jpg') }}"
+    alt=""
+    width="1600"
+    height="900"
+    decoding="async"
+    fetchpriority="high"
+    aria-hidden="true">
+  <div class="hero-overlay" aria-hidden="true"></div>
+  <div class="hero-content">
+    <h1>AI-assisted precision agriculture</h1>
+    <p>Recommend crops and fertilizers from soil and weather inputs, and screen plant leaves for disease — all from one dashboard.</p>
+  </div>
+</section>
+
+<div class="card-grid">
+  <article class="module-card">
+    <img class="thumb" src="{{ url_for('static', filename='images/card-crop.jpg') }}" width="800" height="400" alt="Green crop field">
+    <div class="body">
+      <h2>Crop recommendation</h2>
+      <p>Enter NPK, temperature, humidity, pH, and rainfall to get a suggested crop from a locally trained Random Forest model.</p>
+      <a class="btn btn-primary" href="{{ url_for('crop_page') }}">Open form</a>
+    </div>
+  </article>
+  <article class="module-card">
+    <img class="thumb" src="{{ url_for('static', filename='images/card-fertilizer.jpg') }}" width="800" height="400" alt="Agricultural soil and nutrients">
+    <div class="body">
+      <h2>Fertilizer recommendation</h2>
+      <p>Combine soil type, crop type, moisture, weather, and NPK to receive a fertilizer suggestion tuned to your synthetic training profile.</p>
+      <a class="btn btn-primary" href="{{ url_for('fertilizer_page') }}">Open form</a>
+    </div>
+  </article>
+  <article class="module-card">
+    <img class="thumb" src="{{ url_for('static', filename='images/card-disease.jpg') }}" width="800" height="400" alt="Healthy plant leaves for disease screening">
+    <div class="body">
+      <h2>Plant disease detection</h2>
+      <p>Upload a leaf photo for inference with your Colab-trained EfficientNet model (<code>best_model.keras</code>).</p>
+      <a class="btn btn-primary" href="{{ url_for('disease_page') }}">Upload image</a>
+    </div>
+  </article>
+</div>
+{% endblock %}

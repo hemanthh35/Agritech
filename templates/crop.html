@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Crop recommendation — AgriTech{% endblock %}
+{% block content %}
+<h1 class="page-title">Crop recommendation</h1>
+<p class="page-lead">Provide soil nutrients and environmental readings. Values are sent as JSON to <code>/predict_crop</code>.</p>
+
+<form class="form-panel" id="crop-form">
+  <div class="form-grid">
+    <label class="field">N (Nitrogen) <span class="hint">kg/ha scale</span>
+      <input type="number" step="any" name="N" value="90" required>
+    </label>
+    <label class="field">P (Phosphorus)
+      <input type="number" step="any" name="P" value="45" required>
+    </label>
+    <label class="field">K (Potassium)
+      <input type="number" step="any" name="K" value="45" required>
+    </label>
+    <label class="field">Temperature (°C)
+      <input type="number" step="any" name="temperature" value="25" required>
+    </label>
+    <label class="field">Humidity (%)
+      <input type="number" step="any" name="humidity" value="70" required>
+    </label>
+    <label class="field">pH
+      <input type="number" step="any" name="ph" value="6.5" required>
+    </label>
+    <label class="field">Rainfall (mm)
+      <input type="number" step="any" name="rainfall" value="100" required>
+    </label>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" id="crop-btn">Predict crop</button>
+    <span class="loader" id="crop-loader"><span class="spinner"></span> Running model…</span>
+  </div>
+</form>
+
+<div class="result-panel" id="crop-result" aria-live="polite">
+  <h3>Result</h3>
+  <p class="meta">Submit the form to see the recommended crop.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById("crop-form");
+  const btn = document.getElementById("crop-btn");
+  const loader = document.getElementById("crop-loader");
+  const out = document.getElementById("crop-result");
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const body = {};
+    for (const [k, v] of fd.entries()) body[k] = parseFloat(v);
+    setLoading(loader, btn, true);
+    try {
+      const data = await postJson("/predict_crop", body);
+      out.innerHTML = "<h3>Recommended crop</h3><div class=\"value\">" + escapeHtml(data.crop) + "</div>";
+    } catch (err) {
+      out.innerHTML = "<h3>Error</h3><div class=\"error\">" + escapeHtml(err.message) + "</div>";
+    } finally {
+      setLoading(loader, btn, false);
+    }
+  });
+
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB"/>
+      <stop offset="100%" style="stop-color:#E8F4E8"/>
+    </linearGradient>
+    <linearGradient id="field" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#40916c"/>
+      <stop offset="100%" style="stop-color:#1b4332"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#sky)"/>
+  <ellipse cx="900" cy="80" rx="90" ry="28" fill="#fff" opacity="0.85"/>
+  <ellipse cx="720" cy="65" rx="70" ry="22" fill="#fff" opacity="0.7"/>
+  <path d="M0 220 Q300 180 600 210 T1200 200 L1200 400 L0 400 Z" fill="url(#field)"/>
+  <path d="M0 260 Q400 240 800 270 T1200 255 L1200 400 L0 400 Z" fill="#2d6a4f" opacity="0.6"/>
+  <g fill="#95d5b2" opacity="0.4">
+    <ellipse cx="150" cy="300" rx="4" ry="12" transform="rotate(-8 150 300)"/>
+    <ellipse cx="180" cy="295" rx="4" ry="14" transform="rotate(5 180 295)"/>
+    <ellipse cx="400" cy="310" rx="4" ry="11" transform="rotate(3 400 310)"/>
+    <ellipse cx="650" cy="305" rx="4" ry="13" transform="rotate(-5 650 305)"/>
+    <ellipse cx="900" cy="315" rx="4" ry="12" transform="rotate(6 900 315)"/>
+  </g>
+</svg>
