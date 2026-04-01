@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: agritech
-    env: python
-    pythonVersion: 3.10
-    region: oregon
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
