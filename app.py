@@ -62,18 +62,45 @@ def get_fertilizer_bundle():
 
 
 def get_disease_model():
-    """Lazy-load TensorFlow/Keras model (heavy)."""
+    """Lazy-load TensorFlow/Keras model (heavy). Handles Keras 2/3 compatibility."""
     global _disease_model, _class_labels
     if _disease_model is None:
         import tensorflow as tf
 
         keras_path = MODEL_DIR / "best_model.keras"
         h5_path = MODEL_DIR / "final_model.h5"
+        
+        model_loaded = False
         if keras_path.is_file():
-            _disease_model = tf.keras.models.load_model(keras_path)
+            try:
+                # Try standard load first
+                _disease_model = tf.keras.models.load_model(keras_path)
+                model_loaded = True
+            except (ValueError, ImportError) as e:
+                # Handle Keras 3.x → Keras 2.x incompatibility (keras.src.* imports)
+                logger.warning(f"Failed to load .keras file ({str(e)[:100]}). Trying legacy h5 format.")
+                if h5_path.is_file():
+                    try:
+                        _disease_model = tf.keras.models.load_model(h5_path)
+                        model_loaded = True
+                    except Exception as e2:
+                        logger.error(f"Failed to load h5 model: {e2}")
+                        raise FileNotFoundError(
+                            "Disease model corrupted or incompatible. "
+                            "Retrain with: python train_crop.py"
+                        )
         elif h5_path.is_file():
-            _disease_model = tf.keras.models.load_model(h5_path)
-        else:
+            try:
+                _disease_model = tf.keras.models.load_model(h5_path)
+                model_loaded = True
+            except Exception as e:
+                logger.error(f"Failed to load h5 model: {e}")
+                raise FileNotFoundError(
+                    "Disease model corrupted or incompatible. "
+                    "Retrain with: python train_crop.py"
+                )
+        
+        if not model_loaded:
             raise FileNotFoundError(
                 "Missing disease model: place best_model.keras or final_model.h5 in models/"
             )
