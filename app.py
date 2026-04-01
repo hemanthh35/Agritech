@@ -67,45 +67,39 @@ def get_disease_model():
     if _disease_model is None:
         import tensorflow as tf
 
-        keras_path = MODEL_DIR / "best_model.keras"
         h5_path = MODEL_DIR / "final_model.h5"
+        keras_path = MODEL_DIR / "best_model.keras"
         
-        model_loaded = False
-        if keras_path.is_file():
+        # Prefer .h5 (Keras 2.x compatible), skip .keras (Keras 3.x incompatible)
+        if h5_path.is_file():
             try:
-                # Try standard load first
-                _disease_model = tf.keras.models.load_model(keras_path)
-                model_loaded = True
-            except (ValueError, ImportError) as e:
-                # Handle Keras 3.x → Keras 2.x incompatibility (keras.src.* imports)
-                logger.warning(f"Failed to load .keras file ({str(e)[:100]}). Trying legacy h5 format.")
-                if h5_path.is_file():
-                    try:
-                        _disease_model = tf.keras.models.load_model(h5_path)
-                        model_loaded = True
-                    except Exception as e2:
-                        logger.error(f"Failed to load h5 model: {e2}")
-                        raise FileNotFoundError(
-                            "Disease model corrupted or incompatible. "
-                            "Retrain with: python train_crop.py"
-                        )
-        elif h5_path.is_file():
-            try:
+                logger.info(f"Loading disease model from {h5_path}")
                 _disease_model = tf.keras.models.load_model(h5_path)
-                model_loaded = True
+                logger.info("✓ Disease model loaded successfully")
+                _class_labels = _load_class_labels()
+                return _disease_model
             except Exception as e:
                 logger.error(f"Failed to load h5 model: {e}")
-                raise FileNotFoundError(
-                    "Disease model corrupted or incompatible. "
-                    "Retrain with: python train_crop.py"
-                )
         
-        if not model_loaded:
-            raise FileNotFoundError(
-                "Missing disease model: place best_model.keras or final_model.h5 in models/"
+        # Fallback: try .keras (may fail if Keras 3.x format on Keras 2.x system)
+        if keras_path.is_file():
+            logger.warning(
+                f"Using .keras file ({keras_path}); this may fail if saved with Keras 3.x. "
+                f"For production: convert to .h5 format on Google Colab using colab_convert_model.py"
             )
-        _class_labels = _load_class_labels()
-    return _disease_model
+            try:
+                _disease_model = tf.keras.models.load_model(keras_path)
+                _class_labels = _load_class_labels()
+                return _disease_model
+            except Exception as e:
+                logger.error(f"Failed to load .keras file: {str(e)[:200]}")
+        
+        # No model found
+        raise FileNotFoundError(
+            "Disease model missing. Expected: models/final_model.h5 "
+            "(or models/best_model.keras converted from Colab). "
+            "See colab_convert_model.py for conversion instructions."
+        )
 
 
 def _fertilizer_explanation(prediction: str, summary: dict) -> str:
