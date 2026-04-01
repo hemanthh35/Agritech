@@ -1,9 +1,11 @@
 """
 Flask API + web UI for precision agriculture: crop, fertilizer, and disease prediction.
+Production-ready with lazy loading, error handling, and dual deployment support.
 """
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -12,12 +14,17 @@ from flask import Flask, jsonify, render_template, request
 from PIL import Image
 import joblib
 
+# Logger setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 ROOT = Path(__file__).resolve().parent
 MODEL_DIR = ROOT / "models"
 
 # Limit upload size (16 MB)
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+app.config["JSON_SORT_KEYS"] = False
 
 _crop_bundle = None
 _fertilizer_bundle = None
@@ -312,10 +319,29 @@ def predict_disease():
 
 @app.errorhandler(413)
 def too_large(_e):
-    return jsonify({"error": "File too large"}), 413
+    return jsonify({"error": "File too large (max 16 MB)"}), 413
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    logger.error(f"500 error: {e}")
+    return jsonify({"error": "Internal server error"}), 500
+
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Route not found"}), 404
 
 
 if __name__ == "__main__":
     # Preload class labels for disease route metadata
     _class_labels.extend(_load_class_labels())
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
+    
+    # Get port from environment or default to 5000 for local dev
+    port = int(os.environ.get("PORT", 5000))
+    
+    # Production safety: never use debug=True in production
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    
+    logger.info(f"Starting AgriTech API on port {port} (debug={debug_mode})")
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)
